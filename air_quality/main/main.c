@@ -1,26 +1,39 @@
-#include "driver/gpio.h"
-#include "esp_log.h"
-#include "string.h"
-#include "esp_log.h"
+#include <stdio.h>
 #include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "esp_log.h"
+#include "dht.h" // Header from the esp-idf-lib/dht component
 
+// Define the GPIO pin and sensor type
+#define SENSOR_TYPE DHT_TYPE_DHT11
+#define SENSOR_GPIO 4 // Make sure this is the GPIO pin you are using
 
-#include "esp32_dht11.h"
-#define CONFIG_DHT11_PIN GPIO_NUM_4
-#define CONFIG_CONNECTION_TIMEOUT 5
+// Tag for logging
+static const char *TAG = "DHT11_SENSOR";
 
-void app_main() {
-    dht11_t dht11_sensor;
-    dht11_sensor.dht11_pin = CONFIG_DHT11_PIN;
+void dht_task(void *pvParameters)
+{
+    float temperature, humidity;
 
-    // Read data
     while(1)
     {
-      if(!dht11_read(&dht11_sensor, CONFIG_CONNECTION_TIMEOUT))
-      {  
-        printf("[Temperature]> %.2f \n",dht11_sensor.temperature);
-        printf("[Humidity]> %.2f \n",dht11_sensor.humidity);
-      }
-      vTaskDelay(2000/portTICK_PERIOD_MS);
-    } 
+        // This library uses a simple function to read float data
+        if (dht_read_float_data(SENSOR_TYPE, SENSOR_GPIO, &humidity, &temperature) == ESP_OK)
+        {
+            ESP_LOGI(TAG, "Humidity: %.1f%%, Temperature: %.1f°C", humidity, temperature);
+        }
+        else
+        {
+            ESP_LOGE(TAG, "Failed to read data from sensor");
+        }
+
+        // Wait 3 seconds before the next reading
+        vTaskDelay(pdMS_TO_TICKS(3000));
+    }
+}
+
+void app_main(void)
+{
+    // Create the sensor reading task
+    xTaskCreate(dht_task, "dht_task", 2048, NULL, 5, NULL);
 }
